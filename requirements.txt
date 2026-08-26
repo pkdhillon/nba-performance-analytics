@@ -3,3 +3,5 @@ numpy
 matplotlib
 jupyter
 sqlalchemy
+streamlit
+plotly
