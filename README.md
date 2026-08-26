@@ -1,234 +1,319 @@
-# NBA Player Performance Analytics (2024-25 Season)
+# NBA Player Performance Analytics
 
-An end-to-end data analysis project using **Python (pandas, matplotlib)** and **SQL (SQLite)**.
-It takes a raw NBA player statistics file, cleans it into one row per player, loads it into a
-SQL database, and answers questions about scoring, rebounding, and playmaking.
+An end-to-end data analytics project analyzing player performance during the **2024-25 NBA season**.
 
----
-
-## The Dataset
-
-| | |
-|---|---|
-| **Source** | Basketball Reference — 2024-25 NBA regular season per-game player stats |
-| **Raw file** | `data/raw/nba_player_stats_raw.csv` |
-| **Raw size** | 735 rows × 30 columns |
-| **After cleaning** | 569 rows (one per player) |
-
-Every statistic in this dataset is a **per-game average**, not a season total. For example,
-`PTS` is points *per game*. This is why the cleaning step renames the columns to names like
-`Points_Per_Game` — it makes the numbers impossible to misread later.
+I used **Python, pandas, SQL, SQLite, Plotly, and Streamlit** to clean NBA player data, analyze performance trends, and build an interactive dashboard.
 
 ---
 
-## Cleaning Process
+## Dashboard Preview
 
-The raw file has more rows (735) than players (569). The difference comes from **players who
-were traded mid-season**. Basketball Reference gives a traded player several rows:
+The Streamlit dashboard allows users to explore NBA player performance using filters, interactive visualizations, and player comparisons.
 
-- one combined row for the whole season, with the team listed as `2TM` (two teams) or `3TM`
-- one row for each individual team they played on
+### Season Overview
 
-For example, Luka Doncic has a `2TM` row for his full season plus separate rows for Dallas
-and the Lakers. If you don't handle this, he gets counted three times, and his "season" is
-whichever partial row happens to come first.
+The main dashboard displays key performance leaders and allows users to filter players by team and position.
 
-**The approach used here (`src/clean_data.py`):**
+![NBA Season Overview](screenshots/dashboard_overview.png)
 
-1. Flag every row whose team code looks like `2TM` or `3TM` using a regular expression.
-2. Sort so those combined rows come first within each player.
-3. Use `drop_duplicates(subset="Player", keep="first")` to keep exactly one row per player.
+### Minutes Played vs. Scoring
 
-Because the combined rows were sorted first, each traded player keeps their **full-season**
-line rather than a partial one. This takes 735 rows down to 569 — one per player.
+This interactive scatter plot explores the relationship between minutes played and points scored.
 
-4. Rename all 30 columns from abbreviations to readable names (`PTS` → `Points_Per_Game`).
-5. Save the result to `data/processed/nba_players_clean.csv`.
+![Minutes vs Scoring](screenshots/dashboard_scoring_analysis.png)
 
-The raw file is never modified. All cleaning happens on a copy.
+### Player Comparison
 
-### Why missing shooting percentages stay empty
+Users can select two players and compare their scoring, rebounding, and assist averages.
 
-Five columns have blanks in the raw data:
-
-| Column | Blank rows |
-|---|---|
-| `3P%` (three-point %) | 45 |
-| `FT%` (free throw %) | 42 |
-| `2P%` (two-point %) | 11 |
-| `FG%` (field goal %) | 4 |
-| `eFG%` (effective FG %) | 4 |
-
-A blank here means **the player never attempted that type of shot**, so the percentage is
-*undefined* — not zero. Filling them with `0` would claim the player shot and missed every
-single time, which would pull down any average calculated on that column.
-
-Leaving them as `NaN` in pandas (and `NULL` in SQL) is the correct choice, because both tools
-automatically **skip** missing values when averaging. In the database, `AVG(Three_Point_Percentage)`
-correctly averages the 541 players who actually took a three, ignoring the 28 who never did.
-
-### One known trade-off
-
-Because traded players keep their combined row, their team is literally recorded as `"2TM"`.
-That means they are **excluded from team-level analysis** (see query 8 in `sql/nba_analysis.sql`).
-This is a deliberate trade-off: it keeps every player's season stats complete and accurate at
-the cost of leaving traded players out of per-team averages.
+![NBA Player Comparison](screenshots/dashboard_player_comparison.png)
 
 ---
 
-## The 58-Game Filter
+## Project Overview
 
-An NBA regular season is 82 games. In the cleaned dataset, **113 of 569 players appeared in
-fewer than 20 games**, and 61 played fewer than 10.
+The goal of this project was to answer several questions about NBA player performance:
 
-Per-game averages from a tiny sample are unreliable. A player who scores well in 5 games can
-outrank a star who played all season, even though there isn't enough evidence to say they're
-actually better.
+- Who were the top scorers, rebounders, and assist leaders?
+- Which positions scored the most points on average?
+- Is there a relationship between minutes played and scoring?
+- How do individual players compare?
+- How can the data be explored through an interactive dashboard?
 
-So `src/analyze_players.py` defines one constant:
+The project follows this workflow:
+
+**Raw Data → Data Cleaning → SQL Database → Analysis → Interactive Dashboard**
+
+---
+
+## Technologies
+
+- **Python** — data processing and analysis
+- **pandas** — data cleaning, filtering, and aggregation
+- **SQL** — querying player statistics
+- **SQLite** — storing the cleaned dataset
+- **Matplotlib** — exploratory data visualizations
+- **Plotly** — interactive visualizations
+- **Streamlit** — interactive dashboard
+- **Git & GitHub** — version control
+- **Claude Code** — code review and development assistance
+
+---
+
+## Dataset
+
+The dataset contains **2024-25 NBA regular-season per-game player statistics** from Basketball Reference.
+
+The original dataset contains:
+
+- **735 rows**
+- **30 columns**
+- **569 unique players**
+
+Some players appear multiple times because they were traded during the season.
+
+For example, a traded player may have:
+
+- A combined season row such as `2TM`
+- A row for their first team
+- A row for their second team
+
+The cleaning process keeps the combined full-season record so that each player appears only once.
+
+**735 raw rows → 569 unique players**
+
+---
+
+## Data Cleaning
+
+Data cleaning is performed in:
+
+`src/clean_data.py`
+
+The script:
+
+1. Loads the raw NBA dataset.
+2. Checks for missing values and duplicates.
+3. Handles players who played for multiple teams.
+4. Keeps one full-season record per player.
+5. Renames abbreviated columns to readable names.
+6. Saves the cleaned dataset for analysis.
+
+For example:
+
+- `PTS` → `Points_Per_Game`
+- `AST` → `Assists_Per_Game`
+- `TRB` → `Rebounds_Per_Game`
+
+Missing shooting percentages are kept as missing values rather than changed to zero. A missing percentage can mean that the player never attempted that type of shot, so treating it as 0% would be misleading.
+
+---
+
+## 58-Game Qualification
+
+For player performance comparisons, I included players who appeared in at least **58 games**.
 
 ```python
-MIN_GAMES = 58   # roughly 70% of an 82-game season
+MIN_GAMES = 58
 ```
 
-This filter is applied to the **leaderboards, the position analysis, and the scatter plot**.
-It reduces the pool from 569 players to **231 qualified players**. The full cleaned dataset and
-the SQL database still contain all 569 players — nobody is deleted, they're just not ranked.
+This represents roughly 70% of the NBA's 82-game regular season.
 
-**This filter genuinely changed the results**, which is why it's worth calling out:
+The filter helps reduce the effect of small sample sizes when comparing per-game statistics.
 
-- *Top 10 rebounders:* Victor Wembanyama (46 games) and Isaiah Hartenstein (57) drop out;
-  Alperen Sengun, Jalen Duren, and Nikola Vucevic take their places.
-- *Top 10 assists:* Dejounte Murray, who played only **31 games**, drops out.
-- *Scoring by position:* the ranking itself flipped. Unfiltered, power forwards ranked 2nd.
-  With the filter, they fall to 4th and shooting guards move up to 2nd.
-
-The unfiltered chart was partly measuring *"which position has more bench players"* rather
-than *"which position scores most."* The filter fixes that.
+The complete cleaned dataset still contains all **569 players**. The 58-game threshold is used only when making performance comparisons.
 
 ---
 
-## Python Analysis (`src/analyze_players.py`)
+## Python Analysis
 
-Produces three leaderboards and three charts, all using qualified players only:
+`src/analyze_players.py` analyzes the cleaned NBA dataset.
 
-- **Top 10 scorers**, rebounders, and assist leaders — all three use a single reusable
-  function, `show_top_10(df, stat_column, title)`, instead of three copies of the same code.
-- **Average points per game by position** — grouped with `groupby()`.
-- **Minutes played vs points scored** — a scatter plot, plus the correlation between the two.
+The analysis includes:
 
-### Correlation finding
+- Top 10 scorers
+- Top 10 rebounders
+- Top 10 assist leaders
+- Average scoring by position
+- Minutes per game vs. points per game
+- Correlation between minutes and scoring
 
-The correlation between `Minutes_Per_Game` and `Points_Per_Game` among qualified players is
-**r = 0.837**.
+The analysis found a correlation of approximately:
 
-Correlation runs from -1 to 1, and a value this close to 1 means the two move together very
-closely: playing time explains most of the difference in scoring. Put simply, **most of what
-separates a 25-point scorer from a 6-point scorer is how long the coach leaves them on the
-floor.** This is a good argument for looking at *per-minute* efficiency stats if you want to
-find genuinely underused players.
+**r = 0.84**
+
+between minutes per game and points per game among qualified players.
+
+This indicates a strong positive relationship: players who play more minutes tend to score more points per game.
 
 ---
 
-## SQL Analysis (`sql/nba_analysis.sql`)
+## SQL Analysis
 
-`src/create_database.py` loads the cleaned CSV into a SQLite table called `players`
-(569 rows, 30 columns) at `data/nba_stats.db`. The query file covers:
+The cleaned data is loaded into a SQLite database using:
 
-| # | Query | Concept demonstrated |
-|---|---|---|
-| 1 | Preview the first 10 players | `SELECT`, `LIMIT` |
-| 2-4 | Top 10 scorers / rebounders / assist leaders | `ORDER BY`, `LIMIT` |
-| 5 | Average scoring by position | `GROUP BY`, `AVG`, `ROUND` |
-| 6 | Players averaging 20+ points | `WHERE` |
-| 7 | Players with 20+ points **and** 5+ assists | `WHERE` with `AND` |
-| 8 | Average player scoring by team | `GROUP BY` with a filter to exclude `2TM`/`3TM` |
+`src/create_database.py`
 
-Sample results: **50 players** averaged 20+ points per game, and **26 players** managed both
-20+ points and 5+ assists — the two-way offensive threats.
+The SQL queries are located in:
 
-Note that the SQL queries run against all 569 players, so they are not filtered by `MIN_GAMES`.
+`sql/nba_analysis.sql`
+
+The queries analyze:
+
+- Top scorers
+- Top rebounders
+- Top assist leaders
+- Average scoring by position
+- Players averaging at least 20 points per game
+- Players averaging at least 20 points and 5 assists
+- Average player scoring by team
+
+The SQLite database contains all **569 cleaned players**, while performance-ranking queries use the **58-game qualification threshold**.
+
+---
+
+## Interactive Dashboard
+
+The interactive dashboard is built using **Streamlit and Plotly**.
+
+It includes:
+
+- Qualified player count
+- Scoring leader
+- Assist leader
+- Rebound leader
+- Team filter
+- Position filter
+- Top 10 scorers
+- Average scoring by position
+- Minutes vs. scoring analysis
+- Player-to-player comparison
+- Interactive chart tooltips
+
+The dashboard code is located at:
+
+`dashboard/app.py`
+
+### Run the Dashboard
+
+```bash
+streamlit run dashboard/app.py
+```
 
 ---
 
 ## Key Findings
 
-1. **Shai Gilgeous-Alexander led the league in scoring** at 32.7 points per game, ahead of
-   Giannis Antetokounmpo (30.4) and Nikola Jokic (29.6).
-2. **Nikola Jokic appears in the top 10 for scoring, rebounding, and assists** — the only
-   player to do so, and a clear statistical case for his MVP-level season.
-3. **Point guards score the most on average** (14.1 PPG), and centers the least (11.2 PPG)
-   among qualified players.
-4. **Playing time drives scoring** (r = 0.837). Minutes explain most of the variation in
-   points per game.
-5. **26 players averaged both 20+ points and 5+ assists**, showing how many modern guards and
-   forwards carry a dual scoring-and-playmaking role.
+### Scoring
 
----
+**Shai Gilgeous-Alexander** led qualified players with **32.7 points per game**.
 
-## How to Run
+### Rebounding
 
-**Requirements:** Python 3.8 or newer.
+**Domantas Sabonis** averaged **13.9 rebounds per game**, placing him among the league's top rebounders.
 
-```bash
-# 1. Install dependencies
-pip install -r requirements.txt
+### Playmaking
 
-# 2. Clean the raw data  ->  data/processed/nba_players_clean.csv
-python src/clean_data.py
+**Trae Young** led qualified players in assists per game.
 
-# 3. Build the SQL database  ->  data/nba_stats.db
-python src/create_database.py
+### Versatility
 
-# 4. Run the analysis and generate charts  ->  screenshots/
-python src/analyze_players.py
-```
+**Nikola Jokic** ranked among the leaders in scoring, rebounding, and assists.
 
-Run the scripts **in that order** — each one uses the output of the previous step.
+### Minutes and Scoring
 
-All file paths are built relative to the project folder, so the scripts work no matter which
-directory you run them from. The `data/processed/` and `screenshots/` folders are created
-automatically if they don't exist.
-
-To explore the database directly:
-
-```bash
-sqlite3 data/nba_stats.db
-sqlite> SELECT Player, Points_Per_Game FROM players ORDER BY Points_Per_Game DESC LIMIT 10;
-```
+Minutes per game and points per game had a correlation of approximately **0.84** among qualified players, showing a strong positive relationship between playing time and scoring.
 
 ---
 
 ## Project Structure
 
-```
+```text
 nba-performance-analytics/
+│
 ├── data/
 │   ├── raw/
-│   │   └── nba_player_stats_raw.csv     # Original data, never modified
-│   ├── processed/                       # Created by clean_data.py (not in git)
-│   │   └── nba_players_clean.csv        # One row per player, readable columns
-│   └── nba_stats.db                     # SQLite database, built from the clean CSV
+│   │   └── nba_player_stats_raw.csv
+│   ├── processed/
+│   │   └── nba_players_clean.csv
+│   └── nba_stats.db
+│
 ├── src/
-│   ├── clean_data.py                    # Step 1: clean and de-duplicate
-│   ├── create_database.py               # Step 2: load into SQLite
-│   └── analyze_players.py               # Step 3: analysis and charts
+│   ├── clean_data.py
+│   ├── create_database.py
+│   └── analyze_players.py
+│
 ├── sql/
-│   └── nba_analysis.sql                 # 8 analysis queries
-├── screenshots/                         # Charts saved by analyze_players.py
+│   └── nba_analysis.sql
+│
+├── dashboard/
+│   └── app.py
+│
+├── screenshots/
+│   ├── season overview.png
+│   ├── graph.png
+│   ├── player comparison.png
 │   ├── top_10_scorers.png
 │   ├── scoring_by_position.png
 │   └── minutes_vs_scoring.png
+│
 ├── requirements.txt
 └── README.md
 ```
 
 ---
 
-## Charts
+## How to Run
 
-| Chart | What it shows |
-|---|---|
-| `screenshots/top_10_scorers.png` | Horizontal bar chart of the 10 highest scorers |
-| `screenshots/scoring_by_position.png` | Average points per game for each of the 5 positions |
-| `screenshots/minutes_vs_scoring.png` | Scatter plot of minutes vs points, with correlation |
+### 1. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Clean the data
+
+```bash
+python src/clean_data.py
+```
+
+### 3. Create the SQLite database
+
+```bash
+python src/create_database.py
+```
+
+### 4. Run the Python analysis
+
+```bash
+python src/analyze_players.py
+```
+
+### 5. Launch the dashboard
+
+```bash
+streamlit run dashboard/app.py
+```
+
+---
+
+## What I Learned
+
+This project helped me practice a complete data analytics workflow, including:
+
+- Cleaning real-world data with pandas
+- Handling duplicate player records
+- Working with missing data
+- Writing SQL queries
+- Using filters to make more meaningful comparisons
+- Creating data visualizations
+- Using correlation to examine relationships
+- Building an interactive Streamlit dashboard
+- Using Claude Code for code review and debugging
+- Organizing and documenting a data project on GitHub
+
+---
+
+## Data Source
+
+Basketball Reference — 2024-25 NBA regular-season per-game player statistics.
