@@ -6,6 +6,11 @@ I used **Python, pandas, SQL, SQLite, Plotly, and Streamlit** to clean NBA playe
 
 ---
 
+## Live Dashboard
+[View the Interactive NBA Dashboard](https://nba-performance-analytics.streamlit.app/)
+
+---
+
 ## Dashboard Preview
 
 The Streamlit dashboard allows users to explore NBA player performance using filters, interactive visualizations, and player comparisons.
